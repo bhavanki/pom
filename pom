@@ -1,0 +1,46 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: $0 <cmd> [<POM>]"
+    echo "Default POM is pom.xml"
+    echo "Commands:"
+    echo "  art: print artifact specification"
+    echo "  ver: print artifact version"
+    echo "  dep: dump immediate dependencies"
+    echo "  pd: dump profile details"
+}
+
+if [[ -z "$1" ]]; then
+    usage
+    exit 0
+fi
+cmd=$1
+shift
+
+if [[ -z "$1" ]]; then
+    POM=pom.xml
+else
+    POM=$1
+fi
+MYDIR=$(dirname $0)
+MVN=$(which mvn)
+
+case $cmd in
+    art)
+        xsltproc --nonet $MYDIR/pom_art.xsl $POM
+        ;;
+    ver)
+        xsltproc --nonet $MYDIR/pom_ver.xsl $POM
+        ;;
+    dep)
+        $MVN -DexcludeTransitive=true dependency:list | \
+            sed "s/\[INFO\]\s*//g" | grep ".\+:.\+:.\+:.\+:.\+"
+        ;;
+    pd)
+        xsltproc --nonet $MYDIR/pom_pd.xsl $POM
+        ;;
+    *)
+        echo "Unrecognized command $cmd"
+        usage
+        ;;
+esac
