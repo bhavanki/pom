@@ -8,6 +8,66 @@ usage() {
     echo "  ver: print artifact version"
     echo "  dep: dump immediate dependencies"
     echo "  pd: dump profile details"
+    echo "  bscm: browse to SCM connection"
+    echo "  vscm: verify SCM connection URLs"
+}
+
+browse() {
+    url=${1#scm:[^:]*:}
+    #echo $url
+    XDG_OPEN=$(which xdg-open 2>/dev/null)
+    if [[ $? == 0 ]]; then
+        $XDG_OPEN "$url" &
+        return
+    fi
+    if [[ -n $BROWSER ]]; then
+        "$BROWSER" "$url" > /dev/null 2>&1 &
+        return
+    fi
+    if [[ $(uname -o) == "Cygwin" ]]; then
+        cygstart $url
+        return
+    fi
+    if [[ -n $DISPLAY ]]; then
+        bs="firefox chromium opera"
+    else
+        bs="lynx elinks"
+    fi
+    for b in $bs
+    do
+        B=$(which $b 2>/dev/null)
+        if [[ $? == 0 ]]; then
+            if [[ -n $DISPLAY ]]; then
+                $B "$url" > /dev/null 2>&1 &
+            else
+                $B "$url"
+            fi
+            return
+        fi
+    done
+    echo Sorry, cannot figure out how to launch your browser.
+}
+
+verify_url() {
+    url=${1#scm:[^:]*:}
+
+    WGET=$(which wget 2>/dev/null)
+    if (( $? != 0 )); then
+        echo Sorry, I need wget to verify URLs.
+        exit 9
+    fi
+
+    wget_opts="-q --spider"
+    if [[ $url =~ ^https ]]; then
+        wget_opts="$wget_opts --no-check-certificate"
+    fi
+    $WGET $wget_opts $url
+    if (( $? == 0 )); then
+        echo OK $url
+    else
+        echo FAIL $url
+        exit 1
+    fi
 }
 
 if [[ -z "$1" ]]; then
@@ -38,6 +98,28 @@ case $cmd in
         ;;
     pd)
         xsltproc --nonet $MYDIR/pom_pd.xsl $POM
+        ;;
+    bscm)
+        SCM="$(xsltproc --nonet $MYDIR/pom_scm.xsl $POM)"
+        if [[ -z $SCM ]]; then
+            echo No SCM URL found
+        else
+            browse "$SCM"
+        fi
+        ;;
+    vscm)
+        SCM="$(xsltproc --nonet $MYDIR/pom_scm.xsl $POM)"
+        if [[ -n $SCM ]]; then
+            verify_url "$SCM"
+        fi
+        DSCM="$(xsltproc --nonet $MYDIR/pom_scm_d.xsl $POM)"
+        if [[ -n $DSCM ]]; then
+            verify_url "$DSCM"
+        fi
+        if [[ -z $SCM && -z $DSCM ]]; then
+            echo No SCM URLs available
+            exit 2
+        fi
         ;;
     *)
         echo "Unrecognized command $cmd"
