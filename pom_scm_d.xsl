@@ -11,7 +11,7 @@
     <xsl:apply-templates select="mvn:scm" />
   </xsl:template>
   <xsl:template match="mvn:scm">
-    <xsl:apply-templates select="mvn:connection" />
+    <xsl:apply-templates select="mvn:developerConnection" />
   </xsl:template>
   <xsl:template match="mvn:developerConnection">
     <xsl:value-of select="." /><xsl:copy-of select="$nl" />
